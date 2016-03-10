@@ -1,0 +1,169 @@
+California's Contributions to 2016 Presidential Campaigns by Alf Maglalang
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages
+library(ggplot2)
+library(gender)
+library(dplyr)
+```
+
+I used the dataset "Financial Contributions to Presidential Campaigns by State". I followed Udacity's instructions to download one state. From http://fec.gov/disclosurep/pnational.do on February 26 2016, I downloaded the dataset from California for 2016 presidential election year. It seems that the latest contribution for this dataset was placed on January 29 2016.
+
+## California Presidential Campaign Finance, dataframe capcf
+```{r echo=FALSE, Load_the_Data}
+# Load the Data for California and some description of data
+capcf <- read.csv('P00000001-CA.csv')
+```
+
+# Univariate Plots Section
+```{r echo=FALSE, Data_summary}
+str(capcf)
+summary(capcf)
+levels(capcf$cand_nm)
+
+# get a count of contributions per candidate
+table(capcf$cand_nm)
+# sort frequency table in decreasing order
+sort(table(capcf$cand_nm), decreasing = TRUE)
+```
+
+Most contributions are to Sanders, Clinton, Cruz, and Carson. The top cities where contributions came from are Los Angeles and San Francisco. The mean contribution amount is 262.4 and the median is 50. The minimum contribution is a negative amount, possibly a refund. The maximum contribution is 10800, definitely an outlier.
+
+```{r echo=FALSE, Univariate_Plots}
+# Plot contributions by candidate
+# Flip the histogram so that candidate names are on vertical axis
+ggplot(aes(x = cand_nm), data = capcf) +
+  geom_bar() +
+  coord_flip() +
+  xlab("Presidential Candidates") +
+  ggtitle("Number of contributions by candidate")
+
+# reorder by count in descending order
+# code from http://docs.ggplot2.org/current/geom_bar.html
+ggplot(aes(factor(cand_nm, levels = names(sort(table(cand_nm))))),
+       data = capcf) +
+  geom_bar() +
+  coord_flip() +
+  xlab("Presidential Candidates") +
+  ggtitle("Number of contributions by candidate, descending order")
+```
+
+## Add candidates' party affiliations and gender of contributors
+```{r echo=FALSE, Assign_party_affiliation}
+# grab all the unique candidate names and assign the right party
+# according to https://ballotpedia.org/Presidential_candidates,_2016
+
+cand_names <- unique(capcf$cand_nm, incomparables = FALSE)
+cand_party <- c("Democrat", "Republican", "Republican", "Republican",
+                "Republican", "Democrat", "Republican", "Republican",
+                "Republican", "Republican", "Republican", "Republican", 
+                "Republican", "Green", "Republican", "Democrat", "Democrat",
+                "Republican", "Democrat", "Republican", "Republican", 
+                "Republican")
+# Verify that I have the correct party for each candidate
+data.frame(cand_names, cand_party)
+```
+
+### Add column cand_party to capcf
+```{r echo=FALSE, Add_variable_cand_party}
+# Using the cand_names vector to get the party name in cand_party
+capcf$cand_party <- cand_party[match(capcf$cand_nm, cand_names)]
+# convert capcf$cand_party to a factor (nominal) variable
+capcf$cand_party <- factor(capcf$cand_party)
+table(capcf$cand_party)
+```
+
+```{r echo=FALSE, Plot_contribution_party}
+ggplot(aes(x = cand_party), data = capcf) +
+  geom_bar() +
+  ggtitle("Number of contributions by party")
+```
+
+### Add a new column gender to capcf dataframe
+The process of adding gender to each contributor involves extracting the first names of contributors, detecting the gender based on first names using the package gender from https://cran.r-project.org/web/packages/gender/index.html. The head and tail of first names are below.
+```{r echo=FALSE, Extract_first_names}
+# get rid of last names from contributors' names, separated by a comma
+capcf$rest_name <- sub(".*,\\s*", "", capcf$contbr_nm)
+# Extract first names from capcf$rest_name
+capcf$contbr_fname <- sub("\\s+.*","", capcf$rest_name)
+head(capcf$contbr_fname, n=15)
+tail(capcf$contbr_fname, n=15)
+```
+
+I used help to get information on gender library: `?gender`
+I first ran the gender package on my name.
+```
+gender("alf", method="ssa", years=c(1932,2012))
+gender("alf", method="ssa", years=c(1932,2012))$gender
+```
+I noticed that the gender function is very slow. It took nearly a second to
+run the code above. It took nearly 12 minutes to run the gender function on
+1000 first names.
+
+I wrote the ApplyGender function so that I can run the function remotely every 8 hours.
+```{r echo=FALSE, ApplyGender_function}
+# get gender every 45000 rows and write to file 
+
+ApplyGender <- function(beg, end) {
+  for (i in beg:end) {
+    # The gender function throws an error and ceases operation if gender
+    # cannot be predicted. So I took the character length of tempgender. If it
+    # is zero length use "unknown" as gender, otherwise use predicted gender
+    tempgender <- gender(as.character(capcf$contbr_fname[i]), method="ssa",
+                         years=c(1932,2012))$gender
+    capcf$gender[i] <- ifelse(length(tempgender) > 0, tempgender, "unknown")
+    # the line of code below is for viewing the status of the process
+    # print(i); print(capcf$gender[i])
+  }
+  # After the loop finishes, write the dataframe to a csv-formatted file
+  # using the last row processed as part of the file name
+  filenm <- paste("capcf_",end, sep="")
+  filenm <- paste(filenm,".csv", sep="")
+  write.csv(capcf, file=filenm, row.names=FALSE, na="")
+}
+
+```
+
+```
+# Run ApplyGender function every 8 hours. After a few hours
+ApplyGender(1, 45000)
+ApplyGender(45001, 90000)
+ApplyGender(90001, 135000)
+ApplyGender(135001, 180478)
+```
+I continued to clean up the gender using the prefix, i.e., if the contributor
+used a prefix. If contributor's name contains a MR, MRS, or MS, I changed
+unknowns to appropriate gender. I ran `table(capcf$gender)` with 5712 unknowns.
+```
+capcf$gender[grepl("MR\\.",capcf$rest_name)&(capcf$gender=="unknown")] <- "male"
+capcf$gender[grepl("MR\\.",capcf$rest_name)&(capcf$gender=="female")] <- "male"
+capcf$gender[grepl("MS\\.",capcf$rest_name)&(capcf$gender=="male")] <- "female"
+capcf$gender[grepl("MRS\\.",capcf$rest_name)&(capcf$gender=="male")] <- "female"
+```
+```{r echo=FALSE, Show_genders}
+table(capcf$gender)
+```
+
+```{r echo=FALSE, Plot_contribution_count_gender}
+ggplot(aes(x = gender), data = capcf) +
+  geom_bar()
+```
+
+
+```{r echo=FALSE, Plot_contribution_amount_density}
+ggplot(aes(x = contb_receipt_amt),
+       data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 5000)) +
+  geom_histogram(binwidth = 100) +
+  scale_x_continuous(breaks = seq(0, 5000, 500))
+```
+
+Most of the contributions are at or below 250. There are other peaks around 500, 1000, and strangely at 2750. The result below shows top 10 contribution amounts.
+```{r echo=FALSE, table_contribution_amount_count}
+# the code below required a lot of experimentation. I first took a subset
+# of amounts greater than zero, table the contribution amounts of the
+# subset, then sorted the result in decreasing order, then taking the
+# top 10 results.
+sort(table((subset(capcf, contb_receipt_amt > 0)$contb_receipt_amt)), decreasing = TRUE)[1:10]
+```
+

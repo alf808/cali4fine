@@ -1,0 +1,31 @@
+resources P4
+
+Udacity's course Data Analysis with R
+http://www.statmethods.net/
+
+http://lightonphiri.org/blog/ggplot2-multiple-plots-in-one-graph-using-gridextra
+
+http://docs.ggplot2.org/current/scale_continuous.html
+
+https://en.wikipedia.org/wiki/Linear_regression#Assumptions
+
+https://en.wikipedia.org/wiki/Normal_distribution
+
+http://flowingdata.com/2008/02/15/how-to-read-and-use-a-box-and-whisker-plot/
+
+https://s3.amazonaws.com/udacity-hosted-downloads/ud651/DataWranglingWithR.pdf
+
+http://docs.ggplot2.org/current/coord_trans.html
+
+http://hci.stanford.edu/publications/2013/invisibleaudience/invisibleaudience.pdf
+
+http://www.r-bloggers.com/hadley-wickham-presents-dplyr-at-user-2014/
+
+
+http://www.r-bloggers.com/r-function-of-the-day-cut-2/
+
+https://www.facebook.com/notes/facebook-data-science/the-emotional-highs-and-lows-of-the-nfl-season/10152033221418859
+
+http://www.r-statistics.com/2013/05/log-transformations-for-skewed-and-wide-distributions-from-practical-data-science-with-r/
+
+

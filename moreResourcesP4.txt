@@ -1,0 +1,3 @@
+http://docs.ggplot2.org/current/geom_bar.html
+
+https://ballotpedia.org/Presidential_candidates,_2016
