@@ -7,6 +7,7 @@ http://lightonphiri.org/blog/ggplot2-multiple-plots-in-one-graph-using-gridextra
 
 http://docs.ggplot2.org/current/scale_continuous.html
 
+http://docs.ggplot2.org/
 https://en.wikipedia.org/wiki/Linear_regression#Assumptions
 
 https://en.wikipedia.org/wiki/Normal_distribution
