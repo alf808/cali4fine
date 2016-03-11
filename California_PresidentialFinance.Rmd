@@ -230,3 +230,21 @@ ggplot(aes(x = reorder(contbr_occupation, count), y = count),
 ```
 Many contributions came from the retired and the unemployed whose combined number of contributions comprised one-third of the total 180478 contributions. Attorneys, homemakers, teachers, engineers, and physicians came at distant third, fourth,... nth places. I'll examine later what the total amount of contributions per occupation will demonstrate.
 
+### Contributions over time
+```{r echo=FALSE, Date_conversion_initial_plot}
+# Convert dates from strings to the Date datatype
+capcf$contb_receipt_dt <- as.Date(capcf$contb_receipt_dt, "%d-%b-%y")
+# Free plotting
+ggplot(aes(x = contb_receipt_dt), data = capcf) +
+  geom_bar()
+```
+
+The financing activity quickly started around Mar-April 2015. The first substantial spike was around June-July 2015. Then there was an upward trend to a sudden peak around September-October of 2015. Then the density increases around December 2015 with a peak just before the new year of 2016. The increased activity continues until the last spike around the end of January. All the spikes seem to correspond with the end of quarterly reports. There were probably financing solicitation drives near the following times March 31, June 30, September 30, and December 31 which were the dates from Presidential Campaign Finance Summaries at  http://fec.gov/press/bkgnd/pres_cf/pres_cf_Even.shtml. The last spike on Jan 2016 seems to correspond with the first monthly report of the new year on Jan 31 2016.
+```{r echo=FALSE, Candidates_contributions_time}
+ggplot(aes(x = contb_receipt_dt), data = capcf) +
+  geom_bar() +
+  xlab("Date of contributions") +
+  facet_wrap(~ cand_nm, ncol = 4)
+```
+
+At first glance, Carson, Clinton, Cruz, and especially Sanders had a lot of financing activities. There's some hints of activities from Bush, Christie, and Rubio. It looks like Sanders contributions count was the only one that passed counts at 500th, 1000th, and 1500th marks. It's the only campaign that looks like there's a true surge. Clinton's activity looks steady. Carson, who's now dropped out of the race, had a good run of financing activity.
