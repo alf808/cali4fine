@@ -2,6 +2,15 @@ resources P4
 
 Udacity's course Data Analysis with R
 http://www.statmethods.net/
+http://vita.had.co.nz/papers/tidy-data.pdf
+
+http://flowingdata.com/2007/12/11/netflix-prize-dataset-visualization/
+
+https://www.facebook.com/notes/facebook-data-science/coordinated-migration/10151930946453859
+
+http://blog.revolutionanalytics.com/2013/08/foodborne-chicago.html
+
+https://cran.r-project.org/web/packages/textcat/textcat.pdf
 
 http://lightonphiri.org/blog/ggplot2-multiple-plots-in-one-graph-using-gridextra
 
