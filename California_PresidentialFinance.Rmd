@@ -14,6 +14,8 @@ I used the dataset "Financial Contributions to Presidential Campaigns by State".
 ```{r echo=FALSE, Load_the_Data}
 # Load the Data for California and some description of data
 capcf <- read.csv('P00000001-CA.csv')
+# DELETE below
+capcf <- subset(capcf, select = -c(row.names, cand_party, rest_name, contbr_fname, gender))
 ```
 
 # Univariate Plots Section
@@ -26,9 +28,18 @@ levels(capcf$cand_nm)
 table(capcf$cand_nm)
 # sort frequency table in decreasing order
 sort(table(capcf$cand_nm), decreasing = TRUE)
+# DELETE below
+capcf <- read.csv('P00000001-CA.csv')
 ```
 
 Most contributions are to Sanders, Clinton, Cruz, and Carson. The top cities where contributions came from are Los Angeles and San Francisco. The mean contribution amount is 262.4 and the median is 50. The minimum contribution is a negative amount, possibly a refund. The maximum contribution is 10800, definitely an outlier.
+```{r echo=FALSE, reorder_levels}
+# I will be reusing the function below many times to reorder levels
+# This code is from http://docs.ggplot2.org/current/geom_bar.html
+ReorderSize <- function(x) {
+  factor(x, levels = names(sort(table(x))))
+}
+```
 
 ```{r echo=FALSE, Univariate_Plots}
 # Plot contributions by candidate
@@ -39,9 +50,8 @@ ggplot(aes(x = cand_nm), data = capcf) +
   xlab("Presidential Candidates") +
   ggtitle("Number of contributions by candidate")
 
-# reorder by count in descending order
-# code from http://docs.ggplot2.org/current/geom_bar.html
-ggplot(aes(factor(cand_nm, levels = names(sort(table(cand_nm))))),
+# reorder by count in descending order using ReorderSize function
+ggplot(aes(x = ReorderSize(cand_nm)),
        data = capcf) +
   geom_bar() +
   coord_flip() +
@@ -66,7 +76,7 @@ data.frame(cand_names, cand_party)
 ```
 
 ### Add column cand_party to capcf
-```{r echo=FALSE, Add_variable_cand_party}
+```{r echo=FALSE, eval=FALSE, Add_variable_cand_party}
 # Using the cand_names vector to get the party name in cand_party
 capcf$cand_party <- cand_party[match(capcf$cand_nm, cand_names)]
 # convert capcf$cand_party to a factor (nominal) variable
@@ -82,11 +92,13 @@ ggplot(aes(x = cand_party), data = capcf) +
 
 ### Add a new column gender to capcf dataframe
 The process of adding gender to each contributor involves extracting the first names of contributors, detecting the gender based on first names using the package gender from https://cran.r-project.org/web/packages/gender/index.html. The head and tail of first names are below.
-```{r echo=FALSE, Extract_first_names}
+```{r echo=FALSE, eval=FALSE, Extract_first_names}
 # get rid of last names from contributors' names, separated by a comma
 capcf$rest_name <- sub(".*,\\s*", "", capcf$contbr_nm)
 # Extract first names from capcf$rest_name
 capcf$contbr_fname <- sub("\\s+.*","", capcf$rest_name)
+```
+```{r echo=FALSE, Show_first_names}
 head(capcf$contbr_fname, n=15)
 tail(capcf$contbr_fname, n=15)
 ```
@@ -125,7 +137,7 @@ ApplyGender <- function(beg, end) {
 
 ```
 
-```
+```{r echo=FALSE, eval=FALSE, Run_ApplyGender}
 # Run ApplyGender function every 8 hours. After a few hours
 ApplyGender(1, 45000)
 ApplyGender(45001, 90000)
@@ -134,8 +146,8 @@ ApplyGender(135001, 180478)
 ```
 I continued to clean up the gender using the prefix, i.e., if the contributor
 used a prefix. If contributor's name contains a MR, MRS, or MS, I changed
-unknowns to appropriate gender. I ran `table(capcf$gender)` with 5712 unknowns.
-```
+unknowns to appropriate gender. After I invoked the last of the ApplyGender, dataframe had 5712 *unknown*s in the *gender* column. After more clean up, the last count of gender types is below.
+```{r echo=FALSE, eval=FALSE, Clean_up_unknown_gender}
 capcf$gender[grepl("MR\\.",capcf$rest_name)&(capcf$gender=="unknown")] <- "male"
 capcf$gender[grepl("MR\\.",capcf$rest_name)&(capcf$gender=="female")] <- "male"
 capcf$gender[grepl("MS\\.",capcf$rest_name)&(capcf$gender=="male")] <- "female"
@@ -143,27 +155,78 @@ capcf$gender[grepl("MRS\\.",capcf$rest_name)&(capcf$gender=="male")] <- "female"
 ```
 ```{r echo=FALSE, Show_genders}
 table(capcf$gender)
+# ratio for each gender
+table(capcf$gender)[1:3]/length(capcf$gender)
 ```
 
 ```{r echo=FALSE, Plot_contribution_count_gender}
 ggplot(aes(x = gender), data = capcf) +
-  geom_bar()
+  geom_bar() +
+  ggtitle("Number of contributions by gender")
 ```
 
+### Plots of contributions by gender faceted by candidate names
+```{r echo=FALSE, Plot_contribution_count_gender_per_candidate}
+ggplot(aes(x = gender), data = subset(capcf, gender != "unknown")) +
+  geom_bar() +
+  ggtitle("Number of contributions by gender per candidate") +
+  facet_wrap(~ cand_nm, scales = "free_x")
 
-```{r echo=FALSE, Plot_contribution_amount_density}
+# see ReorderSize function above
+ggplot(aes(ReorderSize(cand_nm)), data = subset(capcf, gender != "unknown")) +
+  geom_bar() +
+  ggtitle("Number of contributions by gender per candidate") +
+  facet_wrap(~ gender) +
+  coord_flip() +
+  xlab("Presidential Candidates")
+
+# count summary of each candidates by gender
+by(capcf$cand_nm, capcf$gender, summary)
+```
+
+I temporarily took out the *unknown* *gender* from 2 plots above. The contributions from *unknown* gender seemed negligible compared to the number of contributions from females and males. Only Hillary clinton proportionally has more contributions from females. Even Carly Fiorina received more contributions from males than from females. But Bernard Sanders still received more contributions from females than any other candidate. Not only did Sanders receive the most contributions from females, but also the most from males.
+
+```{r echo=FALSE, Plot_contribution_amount_frequency}
 ggplot(aes(x = contb_receipt_amt),
        data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 5000)) +
   geom_histogram(binwidth = 100) +
+  xlab("contribution amounts") +
+  ggtitle("Count of Contribution amounts") +
   scale_x_continuous(breaks = seq(0, 5000, 500))
 ```
 
-Most of the contributions are at or below 250. There are other peaks around 500, 1000, and strangely at 2750. The result below shows top 10 contribution amounts.
+Most of the contributions are at or below 250. There are other spikes around 500, 1000, and strangely at 2750.
+
+The result below shows top 10 contribution amounts which correspond to the spikes on the plot above. Contributions of $50, $100, and $25 are top 3 donation amounts, followed by $10 and $250 amounts. I noticed that the amount $2700 follows closely in the top sixth which corresponds to the last spike in the plot above.
 ```{r echo=FALSE, table_contribution_amount_count}
 # the code below required a lot of experimentation. I first took a subset
 # of amounts greater than zero, table the contribution amounts of the
-# subset, then sorted the result in decreasing order, then taking the
+# subset, then sorted the result in decreasing order, and taking the
 # top 10 results.
-sort(table((subset(capcf, contb_receipt_amt > 0)$contb_receipt_amt)), decreasing = TRUE)[1:10]
+sort(table((subset(capcf, contb_receipt_amt > 0)$contb_receipt_amt)),
+     decreasing = TRUE)[1:10]
 ```
+
+### Top 20 occupations with most number of contributions
+```{r echo=FALSE, Contributors_by_occupation}
+# Plot top 20 occupations by contributions
+capcf.top_occupation <- capcf %>%
+  filter(contbr_occupation != "",
+         contbr_occupation != "INFORMATION REQUESTED PER BEST EFFORTS",
+         contbr_occupation != "INFORMATION REQUESTED") %>%
+  group_by(contbr_occupation) %>%
+  summarize(count = n(), m = median(contb_receipt_amt)) %>%
+  arrange(desc(count)) %>%
+  top_n(20, count)
+
+ggplot(aes(x = reorder(contbr_occupation, count), y = count),
+       data = capcf.top_occupation) +
+  geom_bar(stat = "identity") +
+  xlab("Contributors' occupation") +
+  ylab("Number of contributions") +
+  ggtitle("Top 20 contributors by occupation") +
+  coord_flip() +
+  scale_y_continuous(breaks = seq(0, 40000, 5000))
+```
+Many contributions came from the retired and the unemployed whose combined number of contributions comprised one-third of the total 180478 contributions. Attorneys, homemakers, teachers, engineers, and physicians came at distant third, fourth,... nth places. I'll examine later what the total amount of contributions per occupation will demonstrate.
 
