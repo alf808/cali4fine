@@ -33,6 +33,7 @@ capcf <- read.csv('P00000001-CA.csv')
 ```
 
 Most contributions are to Sanders, Clinton, Cruz, and Carson. The top cities where contributions came from are Los Angeles and San Francisco. The mean contribution amount is 262.4 and the median is 50. The minimum contribution is a negative amount, possibly a refund. The maximum contribution is 10800, definitely an outlier.
+
 ```{r echo=FALSE, reorder_levels}
 # I will be reusing the function below many times to reorder levels
 # This code is from http://docs.ggplot2.org/current/geom_bar.html
@@ -92,6 +93,7 @@ ggplot(aes(x = cand_party), data = capcf) +
 
 ### Add a new column gender to capcf dataframe
 The process of adding gender to each contributor involves extracting the first names of contributors, detecting the gender based on first names using the package gender from https://cran.r-project.org/web/packages/gender/index.html. The head and tail of first names are below.
+
 ```{r echo=FALSE, eval=FALSE, Extract_first_names}
 # get rid of last names from contributors' names, separated by a comma
 capcf$rest_name <- sub(".*,\\s*", "", capcf$contbr_nm)
@@ -114,6 +116,7 @@ run the code above. It took nearly 12 minutes to run the gender function on
 1000 first names.
 
 I wrote the ApplyGender function so that I can run the function remotely every 8 hours.
+
 ```{r echo=FALSE, ApplyGender_function}
 # get gender every 45000 rows and write to file 
 
@@ -144,9 +147,9 @@ ApplyGender(45001, 90000)
 ApplyGender(90001, 135000)
 ApplyGender(135001, 180478)
 ```
-I continued to clean up the gender using the prefix, i.e., if the contributor
-used a prefix. If contributor's name contains a MR, MRS, or MS, I changed
-unknowns to appropriate gender. After I invoked the last of the ApplyGender, dataframe had 5712 *unknown*s in the *gender* column. After more clean up, the last count of gender types is below.
+
+I continued to clean up the gender using the prefix, i.e., if the contributor used a prefix. If contributor's name contains a MR, MRS, or MS, I changed *unknown* to appropriate gender. After I invoked the last of the ApplyGender, dataframe had 5712 *unknown*s in the *gender* column. After more clean up, the last count of gender types is below.
+
 ```{r echo=FALSE, eval=FALSE, Clean_up_unknown_gender}
 capcf$gender[grepl("MR\\.",capcf$rest_name)&(capcf$gender=="unknown")] <- "male"
 capcf$gender[grepl("MR\\.",capcf$rest_name)&(capcf$gender=="female")] <- "male"
@@ -198,6 +201,7 @@ ggplot(aes(x = contb_receipt_amt),
 Most of the contributions are at or below 250. There are other spikes around 500, 1000, and strangely at 2750.
 
 The result below shows top 10 contribution amounts which correspond to the spikes on the plot above. Contributions of $50, $100, and $25 are top 3 donation amounts, followed by $10 and $250 amounts. I noticed that the amount $2700 follows closely in the top sixth which corresponds to the last spike in the plot above.
+
 ```{r echo=FALSE, table_contribution_amount_count}
 # the code below required a lot of experimentation. I first took a subset
 # of amounts greater than zero, table the contribution amounts of the
@@ -209,18 +213,15 @@ sort(table((subset(capcf, contb_receipt_amt > 0)$contb_receipt_amt)),
 
 ### Top 20 occupations with most number of contributions
 ```{r echo=FALSE, Contributors_by_occupation}
-# Plot top 20 occupations by contributions
+# Plot top 20 occupations by number of contributions
 capcf.top_occupation <- capcf %>%
   filter(contbr_occupation != "",
          contbr_occupation != "INFORMATION REQUESTED PER BEST EFFORTS",
          contbr_occupation != "INFORMATION REQUESTED") %>%
-  group_by(contbr_occupation) %>%
-  summarize(count = n(), m = median(contb_receipt_amt)) %>%
-  arrange(desc(count)) %>%
-  top_n(20, count)
+  count(contbr_occupation) %>%
+  top_n(20, n)
 
-ggplot(aes(x = reorder(contbr_occupation, count), y = count),
-       data = capcf.top_occupation) +
+ggplot(aes(x = reorder(contbr_occupation, n), y = n), data = capcf.top_occupation) +
   geom_bar(stat = "identity") +
   xlab("Contributors' occupation") +
   ylab("Number of contributions") +
@@ -228,6 +229,7 @@ ggplot(aes(x = reorder(contbr_occupation, count), y = count),
   coord_flip() +
   scale_y_continuous(breaks = seq(0, 40000, 5000))
 ```
+
 Many contributions came from the retired and the unemployed whose combined number of contributions comprised one-third of the total 180478 contributions. Attorneys, homemakers, teachers, engineers, and physicians came at distant third, fourth,... nth places. I'll examine later what the total amount of contributions per occupation will demonstrate.
 
 ### Contributions over time
@@ -239,7 +241,10 @@ ggplot(aes(x = contb_receipt_dt), data = capcf) +
   geom_bar()
 ```
 
-The financing activity quickly started around Mar-April 2015. The first substantial spike was around June-July 2015. Then there was an upward trend to a sudden peak around September-October of 2015. Then the density increases around December 2015 with a peak just before the new year of 2016. The increased activity continues until the last spike around the end of January. All the spikes seem to correspond with the end of quarterly reports. There were probably financing solicitation drives near the following times March 31, June 30, September 30, and December 31 which were the dates from Presidential Campaign Finance Summaries at  http://fec.gov/press/bkgnd/pres_cf/pres_cf_Even.shtml. The last spike on Jan 2016 seems to correspond with the first monthly report of the new year on Jan 31 2016.
+The financing activity quickly started around Mar-April 2015. The first substantial spike was around June-July 2015. Then there was an upward trend to a sudden peak around September-October of 2015. Then the density increases around December 2015 with a peak just before the new year of 2016. The increased activity continues until the last spike around the end of January.
+
+All the spikes seem to correspond with the end of quarterly reports. There were probably financing solicitation drives near the following times March 31, June 30, September 30, and December 31 which were the dates from Presidential Campaign Finance Summaries at  http://fec.gov/press/bkgnd/pres_cf/pres_cf_Even.shtml. The last spike on Jan 2016 seems to correspond with the first monthly report of the new year on Jan 31 2016.
+
 ```{r echo=FALSE, Candidates_contributions_time}
 ggplot(aes(x = contb_receipt_dt), data = capcf) +
   geom_bar() +
@@ -247,4 +252,143 @@ ggplot(aes(x = contb_receipt_dt), data = capcf) +
   facet_wrap(~ cand_nm, ncol = 4)
 ```
 
-At first glance, Carson, Clinton, Cruz, and especially Sanders had a lot of financing activities. There's some hints of activities from Bush, Christie, and Rubio. It looks like Sanders contributions count was the only one that passed counts at 500th, 1000th, and 1500th marks. It's the only campaign that looks like there's a true surge. Clinton's activity looks steady. Carson, who's now dropped out of the race, had a good run of financing activity.
+At first glance, Carson, Clinton, Cruz, and especially Sanders had a lot of financing activities. There's some hints of activities from Bush, Christie, and Rubio.
+
+It looks like Sanders contributions count was the only one that passed counts at 500th, 1000th, and 1500th marks. It's the only campaign that looks like there's a true surge. Clinton's activity looks steady. Carson, who's now dropped out of the race, had a good run of financing activity.
+
+### Top 20 cities with most number of contributions
+```{r echo=FALSE, Contributions_by_cities}
+# Plot top 20 cities by number of contributions
+capcf.top_cities <- capcf %>%
+  filter(contbr_city != "") %>%
+  count(contbr_city) %>%
+  top_n(20, n)
+
+ggplot(aes(x = reorder(contbr_city, n), y = n), data = capcf.top_cities) +
+  geom_bar(stat = "identity") +
+  xlab("Cities") +
+  ylab("Number of contributions") +
+  ggtitle("Top 20 sources by cities") +
+  coord_flip() +
+  scale_y_continuous(breaks = seq(0, 40000, 5000))
+```
+
+The big cities are main sources of contributions. That makes sense. I'll examine the amounts later.
+
+### Top 20 zip codes with most number of contributions
+```{r echo=FALSE, Contributions_by_zip}
+# Convert contbr_zip 5-digit ZIP codes
+capcf$contbr_zip <- factor(strtrim(capcf$contbr_zip, 5))
+
+# Plot top 20 cities by number of contributions
+capcf.top_zips <- capcf %>%
+  filter(contbr_zip != "") %>%
+  count(contbr_zip) %>%
+  top_n(20, n)
+
+ggplot(aes(x = reorder(contbr_zip, n), y = n), data = capcf.top_zips) +
+  geom_bar(stat = "identity") +
+  xlab("Zip codes") +
+  ylab("Number of contributions") +
+  ggtitle("Top 20 sources by zip codes") +
+  coord_flip() +
+  scale_y_continuous(breaks = seq(0, 2000, 250))
+```
+
+The top sources of contributions based on zip codes is not so interesting. But this is preparation for a choropleth map I plan to do based on zip codes in California. The requirements are from this site: https://rpubs.com/arilamstein/zip-vignette-1.
+
+It is interesting to note that the top zip codes are 941xx in San Francisco; 90049, 90046, 90069 in Los Angeles; 94611 Oakland; 90272 Pacific Palisades; and the famed 90210 in Beverly Hills.
+
+# Univariate Analysis
+
+#### What is the structure of your dataset?
+There are observations in the dataset with 23 variables -- all factor variables with the exception contbr_receipt_amt (contribution amount) and tran_id (transaction ID). I converted the contribution date, contb_receipt_dt, from a factor to a Date datatype. Some of the levels are cand_nm with 22 levels of presidential candidate names:
+```{r echo=FALSE, Candidate_levels}
+levels(capcf$cand_nm)
+```
+candidates' party affiliations:
+```{r echo=FALSE, Candidate_parties}
+levels(capcf$cand_party)
+```
+contributors' gender
+```{r echo=FALSE, Contributor_gender}
+levels(capcf$gender)
+```
+
+#### What is/are the main feature(s) of interest in your dataset?
+This dataset is huge with 180478 observations and 23 variables. The main features in the dataset are cand_nm (presidential candidates) and contb_receipt_amt (contribution amount). The top candidates receiving contributions are Sanders and Clinton (both Democrats) while Republican Cruz and Carson are distant third and fourth.
+
+#### What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+After having done the univariate analyses, I also found the contb_receipt_dt (contribution date) interesting in that one can see how the trends and peaks correspond to the frenzy of campaign activities. The gender of the contributors will show the influence of the sole demographics represented in the dataset.
+ 
+#### Did you create any new variables from existing variables in the dataset?
+I created 2 variables, gender and cand_party (candidates' party affiliations). I converted factor contbr_dt to date datatype. I also changed the zip codes from 9 characters into the first 5 characters in preparation for creating a choropleth map of California based on zip codes. It might intimate some other type of demographics perhaps economic status based on zip code.
+
+#### Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
+I did not notice any unusual distributions in my initial univariate analyses. As I noted earlier, the spikes in contribution activity with regards to dates corresponded to quarterly reports and monthly reports. I only changed the forms of contribution dates and the zip codes in preparation for choropleth map for later analyses.
+
+The most time-consuming part of the preparation of the dataset is adding the gender to the contributors based on first names using the `gender` package from https://cran.r-project.org/web/packages/gender/index.html. It took more than 30 hours. Fortunately, it was mostly unattended since I automated parts of it so I can run it remotely.
+
+My old Windows machine does not behave well with R stastical program and R-studio. The crashes were unpredictable. It would happen while doing a simple plot or a simple table. To save myself some pain, I had to resort to saving my dataframe to an external file several times a day.
+
+
+# Bivariate Plots Section
+```{r echo=FALSE, Bivariate_Plots}
+
+```
+
+# Bivariate Analysis
+
+#### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
+
+#### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
+
+#### What was the strongest relationship you found?
+
+
+
+
+# Multivariate Plots Section
+
+```{r echo=FALSE, Multivariate_Plots}
+
+```
+
+# Multivariate Analysis
+
+#### Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
+
+#### Were there any interesting or surprising interactions between features?
+
+#### OPTIONAL: Did you create any models with your dataset? Discuss the strengths and limitations of your model.
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, Plot_One}
+
+```
+
+### Description One
+
+
+### Plot Two
+```{r echo=FALSE, Plot_Two}
+
+```
+
+### Description Two
+
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+
+```
+
+### Description Three
+
+------
+
+# Reflection
