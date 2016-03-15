@@ -6,6 +6,10 @@ California's Contributions to 2016 Presidential Campaigns by Alf Maglalang
 library(ggplot2)
 library(gender)
 library(dplyr)
+library(GGally)
+library(gridExtra)
+library(scales)
+library(RColorBrewer)
 ```
 
 I used the dataset "Financial Contributions to Presidential Campaigns by State". I followed Udacity's instructions to download one state. From http://fec.gov/disclosurep/pnational.do on February 26 2016, I downloaded the dataset from California for 2016 presidential election year. It seems that the latest contribution for this dataset was placed on January 29 2016.
@@ -35,11 +39,44 @@ capcf <- read.csv('P00000001-CA.csv')
 Most contributions are to Sanders, Clinton, Cruz, and Carson. The top cities where contributions came from are Los Angeles and San Francisco. The mean contribution amount is 262.4 and the median is 50. The minimum contribution is a negative amount, possibly a refund. The maximum contribution is 10800, definitely an outlier.
 
 ```{r echo=FALSE, reorder_levels}
-# I will be reusing the function below many times to reorder levels
+# I may reuse the simplefunction below many times to reorder levels
 # This code is from http://docs.ggplot2.org/current/geom_bar.html
 ReorderSize <- function(x) {
   factor(x, levels = names(sort(table(x))))
 }
+```
+
+## Add candidates' party affiliations and gender of contributors
+```{r echo=FALSE, Assign_party_affiliation}
+# grab all the unique candidate names and assign the right party
+# according to https://ballotpedia.org/Presidential_candidates,_2016
+
+cand_names <- unique(capcf$cand_nm, incomparables = FALSE)
+cand_party <- c("Democrat", "Republican", "Republican", "Republican",
+                "Republican", "Democrat", "Republican", "Republican",
+                "Republican", "Republican", "Republican", "Republican", 
+                "Republican", "Green", "Republican", "Democrat", "Democrat",
+                "Republican", "Democrat", "Republican", "Republican", 
+                "Republican")
+cand_lastnm <- c("Sanders", "Rubio", "Christie", "Bush", "Carson", "Clinton",
+               "Kasich", "Trump", "Fiorina", "Cruz", "Paul", "Santorum",
+               "Jindal", "Stein", "Huckabee", "Lessig", "Webb", "Pataki",
+               "Omalley", "Graham", "Perry", "Walker")
+# Verify that I have the correct party and last name for each candidate
+data.frame(cand_names, cand_lastnm, cand_party)
+```
+
+### Add column cand_party to capcf
+```{r echo=FALSE, Add_variable_cand_party}
+# Using the cand_names vector to get the party name in cand_party
+#capcf$cand_party <- cand_party[match(capcf$cand_nm, cand_names)]
+
+capcf$cand_nm <- cand_lastnm[match(capcf$cand_nm, cand_names)]
+# convert capcf$cand_party to a factor (nominal) variable
+#capcf$cand_party <- factor(capcf$cand_party)
+capcf$cand_nm <- factor(capcf$cand_nm)
+table(capcf$cand_party)
+table(capcf$cand_nm)
 ```
 
 ```{r echo=FALSE, Univariate_Plots}
@@ -58,31 +95,6 @@ ggplot(aes(x = ReorderSize(cand_nm)),
   coord_flip() +
   xlab("Presidential Candidates") +
   ggtitle("Number of contributions by candidate, descending order")
-```
-
-## Add candidates' party affiliations and gender of contributors
-```{r echo=FALSE, Assign_party_affiliation}
-# grab all the unique candidate names and assign the right party
-# according to https://ballotpedia.org/Presidential_candidates,_2016
-
-cand_names <- unique(capcf$cand_nm, incomparables = FALSE)
-cand_party <- c("Democrat", "Republican", "Republican", "Republican",
-                "Republican", "Democrat", "Republican", "Republican",
-                "Republican", "Republican", "Republican", "Republican", 
-                "Republican", "Green", "Republican", "Democrat", "Democrat",
-                "Republican", "Democrat", "Republican", "Republican", 
-                "Republican")
-# Verify that I have the correct party for each candidate
-data.frame(cand_names, cand_party)
-```
-
-### Add column cand_party to capcf
-```{r echo=FALSE, eval=FALSE, Add_variable_cand_party}
-# Using the cand_names vector to get the party name in cand_party
-capcf$cand_party <- cand_party[match(capcf$cand_nm, cand_names)]
-# convert capcf$cand_party to a factor (nominal) variable
-capcf$cand_party <- factor(capcf$cand_party)
-table(capcf$cand_party)
 ```
 
 ```{r echo=FALSE, Plot_contribution_party}
@@ -108,11 +120,9 @@ tail(capcf$contbr_fname, n=15)
 I used help to get information on gender library: `?gender`
 I first ran the gender package on my name.
 ```
-gender("alf", method="ssa", years=c(1932,2012))
 gender("alf", method="ssa", years=c(1932,2012))$gender
 ```
-I noticed that the gender function is very slow. It took nearly a second to
-run the code above. It took nearly 12 minutes to run the gender function on
+I noticed that the gender function is very slow. It took nearly a second to run the code above. It took nearly 12 minutes to run the gender function on
 1000 first names.
 
 I wrote the ApplyGender function so that I can run the function remotely every 8 hours.
@@ -187,7 +197,9 @@ ggplot(aes(ReorderSize(cand_nm)), data = subset(capcf, gender != "unknown")) +
 by(capcf$cand_nm, capcf$gender, summary)
 ```
 
-I temporarily took out the *unknown* *gender* from 2 plots above. The contributions from *unknown* gender seemed negligible compared to the number of contributions from females and males. Only Hillary clinton proportionally has more contributions from females. Even Carly Fiorina received more contributions from males than from females. But Bernard Sanders still received more contributions from females than any other candidate. Not only did Sanders receive the most contributions from females, but also the most from males.
+I temporarily took out the *unknown* *gender* from 2 plots above. The contributions from *unknown* gender seemed negligible compared to the number of contributions from females and males.
+
+Only Hillary clinton proportionally has more contributions from females. Even Carly Fiorina received more contributions from males than from females. But Bernard Sanders still received more contributions from females than any other candidate. Not only did Sanders receive the most contributions from females, but also the most from males.
 
 ```{r echo=FALSE, Plot_contribution_amount_frequency}
 ggplot(aes(x = contb_receipt_amt),
@@ -259,18 +271,32 @@ It looks like Sanders contributions count was the only one that passed counts at
 ### Top 20 cities with most number of contributions
 ```{r echo=FALSE, Contributions_by_cities}
 # Plot top 20 cities by number of contributions
-capcf.top_cities <- capcf %>%
+tc <- capcf %>%
   filter(contbr_city != "") %>%
   count(contbr_city) %>%
-  top_n(20, n)
+  top_n(20, n) %>%
+  arrange(desc(n))
 
-ggplot(aes(x = reorder(contbr_city, n), y = n), data = capcf.top_cities) +
+tc$contbr_city <- factor(tc$contbr_city, levels = tc$contbr_city[order(tc$n)])
+tc$crank <- seq(1, 20)
+
+ggplot(aes(x = contbr_city, y = n), data = tc) +
   geom_bar(stat = "identity") +
   xlab("Cities") +
   ylab("Number of contributions") +
   ggtitle("Top 20 sources by cities") +
   coord_flip() +
   scale_y_continuous(breaks = seq(0, 40000, 5000))
+
+# ggplot(aes(x = reorder(contbr_city, n), y = n), data = tc) +
+#   geom_bar(stat = "identity") +
+#   xlab("Cities") +
+#   ylab("Number of contributions") +
+#   ggtitle("Top 20 sources by cities") +
+#   coord_flip() +
+#   scale_y_continuous(breaks = seq(0, 40000, 5000))
+
+
 ```
 
 The big cities are main sources of contributions. That makes sense. I'll examine the amounts later.
@@ -316,31 +342,183 @@ levels(capcf$gender)
 ```
 
 #### What is/are the main feature(s) of interest in your dataset?
-This dataset is huge with 180478 observations and 23 variables. The main features in the dataset are cand_nm (presidential candidates) and contb_receipt_amt (contribution amount). The top candidates receiving contributions are Sanders and Clinton (both Democrats) while Republican Cruz and Carson are distant third and fourth.
+This dataset is relatively large with 180478 observations and 23 variables. The original dataset had 18 variables. The legend of variable names are at: ftp://ftp.fec.gov/FEC/Presidential_Map/2016/DATA_DICTIONARIES/CONTRIBUTOR_FORMAT.txt.
+
+The main features in the dataset are cand_nm (presidential candidates' names) and contb_receipt_amt (contribution amount). The top candidates receiving contributions are Sanders and Clinton (both Democrats) while Republican Cruz and Carson are distant third and fourth.
+
+I added gender and party affiliations which I think will be interesting to examine how they relate to each other and to other variables.
 
 #### What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
-After having done the univariate analyses, I also found the contb_receipt_dt (contribution date) interesting in that one can see how the trends and peaks correspond to the frenzy of campaign activities. The gender of the contributors will show the influence of the sole demographics represented in the dataset.
+After having done the univariate analyses, I also found the contb_receipt_dt (contribution date) interesting in that one can see how the trends and peaks correspond to the frenzy of campaign activities, esp dates of filing at end of quarter and end of month.
+
+The gender of the contributors will show the influence of the sole demographics represented in the dataset.
  
 #### Did you create any new variables from existing variables in the dataset?
-I created 2 variables, gender and cand_party (candidates' party affiliations). I converted factor contbr_dt to date datatype. I also changed the zip codes from 9 characters into the first 5 characters in preparation for creating a choropleth map of California based on zip codes. It might intimate some other type of demographics perhaps economic status based on zip code.
+I created 2 variables, gender and cand_party (candidates' party affiliations). I converted factor contbr_dt to date datatype. I also changed the candidates' names, cand_nm, to just the last names. This makes plotting more readable. I also changed the zip codes from 9 characters into the first 5 characters in preparation for creating a choropleth map of California based on zip codes. It might intimate some other type of demographics perhaps economic status based on zip code.
 
 #### Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
-I did not notice any unusual distributions in my initial univariate analyses. As I noted earlier, the spikes in contribution activity with regards to dates corresponded to quarterly reports and monthly reports. I only changed the forms of contribution dates and the zip codes in preparation for choropleth map for later analyses.
+I did not notice any unusual distributions in my initial univariate analyses. As I noted earlier, the spikes in contribution activity with regards to dates corresponded to quarterly reports and monthly reports. I changed the forms of contribution dates in order to plot dates in chronological order; candidates' names for plot readability; and the zip codes in preparation for choropleth map for later analyses.
 
 The most time-consuming part of the preparation of the dataset is adding the gender to the contributors based on first names using the `gender` package from https://cran.r-project.org/web/packages/gender/index.html. It took more than 30 hours. Fortunately, it was mostly unattended since I automated parts of it so I can run it remotely.
 
-My old Windows machine does not behave well with R stastical program and R-studio. The crashes were unpredictable. It would happen while doing a simple plot or a simple table. To save myself some pain, I had to resort to saving my dataframe to an external file several times a day.
-
+My old Windows machine does not behave well with the R stastical program and R-studio. The crashes were unpredictable. It would happen while doing a simple plot or a simple table. To save myself some pain, I had to resort to saving the dataframe to an external file several times a day.
 
 # Bivariate Plots Section
-```{r echo=FALSE, Bivariate_Plots}
 
+```{r echo=FALSE, eval=FALSE, scatterplot_matrix}
+set.seed(1836)
+capcf.subset <- subset(capcf, contb_receipt_amt > 0,
+                       select = -c(row.names,
+                                  rest_name,
+                                  contbr_fname,
+                                  cmte_id,
+                                  cand_nm,
+                                  contbr_nm,
+                                  contbr_st,
+                                  receipt_desc,
+                                  memo_text,
+                                  file_num,
+                                  tran_id,
+                                  election_tp,
+                                  contbr_city,
+                                  contbr_employer,
+                                  contbr_occupation,
+                                  contbr_zip))
+capcf.subset <- capcf.subset[sample.int(nrow(capcf.subset), 10000), ]
+names(capcf.subset)
+ggpairs(capcf.subset)
 ```
+
+I experimented with ggpairs a lot. I let it run several times which lasted 90 hours for a whole week -- each time ultimately ending in crashing not only R-studio but also both machines (Windows and Linux) I use for this project. I eventually subset the dataframe down to 8 variables with a few levels for the factor variables. The ugly result is below.
+
+## TODO: put image of ggpair below
+
+```{r echo=FALSE, Bivariate_Plots}
+# Total amount contributed
+total_contributed <- sum(capcf$contb_receipt_amt)
+paste("Total amount contributed to all campaigns:", 
+      dollar_format()(total_contributed), sep = " ")
+
+capcf.amount.candidates <- capcf %>%
+  group_by(cand_nm) %>%
+  summarise(sum(contb_receipt_amt))
+data.frame(capcf.amount.candidates)
+```
+
+**WOW!** And a special **wow** to Clinton for having raised almost nearly half of the total take of all the campaigns put together.
+
+For zooming purposes, the boxplots below have been subset for readability. For aggregating, I did not subset since I'm assuming that the refunds will cancel the amounts that were refunded.
+
+```{r echo=FALSE, candidate_amount}
+p1 <- ggplot(aes(x = cand_nm, y = contb_receipt_amt), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 5000)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45))
+
+p2 <- ggplot(aes(x = cand_nm, y = contb_receipt_amt), data = capcf) +
+  geom_bar(stat="summary", fun.y=sum) +
+  theme(axis.text.x = element_text(angle = 45))
+
+grid.arrange(p1, p2)
+```
+
+In plots for number of contributions above, Sanders (> 70,000) and Clinton (> 40,000) had the most number of contributions, with Cruz (> 20,000) and Carson (> 20,000), at distant third and fourth. With total amount raised.
+
+Clinton tops everyone by tens of millions at nearly 22.5 million dollars raised, with Sanders coming at very distant second raising just below 6.25 million.
+
+Nevertheless, small donations for both Sanders and Clinton still make up 75% of number of donations to their campaigns. The mean donations for Sanders' and Clinton's campaigns are below $250. It seems that Carson and Cruz who both cleared 2.5 million mark also relied on small donations.
+
+```{r echo=FALSE, party_amount}
+p1 <- ggplot(aes(x = cand_party, y = contb_receipt_amt), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 500)) +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = cand_party, y = contb_receipt_amt), data = capcf) +
+  geom_bar(stat="summary", fun.y=sum)
+
+grid.arrange(p1, p2)
+```
+
+The Democratic party seems to have raised 10 million dollars more than the Republican party. 75% of contributors to each party donated at or below $100 with mean donations at or below $50.
+
+With only 4 Democratic candidates, the Democratic candidates in total clearly outraised the 17 Republican candidates.
+
+```{r echo=FALSE, gender_amount}
+p1 <- ggplot(aes(x = gender, y = contb_receipt_amt), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 500)) +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = gender, y = contb_receipt_amt), data = capcf) +
+  geom_bar(stat="summary", fun.y=sum)
+
+grid.arrange(p1, p2)
+```
+
+As seen from the contribution counts above, 53% of the contributors were males, 44% females. Males as a group contributed a total of more than 25 million dollars -- 6 million dollars more than females. But the contribution statistics shows that the distribution appears to be similar among all genders at 75% contributing below $100, with similar means -- with males just above $50, and females just below $50.
+
+```{r echo=FALSE, top_30_cities_amounts}
+cta <- capcf %>%
+  filter(contb_receipt_amt > 0) %>%
+  group_by(contbr_city) %>%
+  tally(contb_receipt_amt) %>%
+  arrange(desc(n)) %>%
+  top_n(30)
+
+cta$contbr_city <- factor(cta$contbr_city, levels = cta$contbr_city[order(cta$n)])
+
+ggplot(aes(x = contbr_city, y = n), data = cta) +
+  geom_bar(stat = "identity") +
+  xlab("Cities") +
+  ylab("Total amount of contributions") +
+  ggtitle("Top 30 cities by total amounts") +
+  coord_flip()
+```
+
+I took the top 30 cities based on total amounts contributed. I noticed that some of the top 20 contributing cities in terms of count disappeared when I examined the aggregate by cities -- notably Walnut Creek, Bakersfield, Santa Cruz, Fresno, and Santa Rosa.
+
+And some top contributing cities in terms of amount did not appear in top 20 contribution counts -- notably Pacific Palisades, Los Altos, Atherton, Sherman Oaks, and nearly all the cities in the bottom of the top 30, excepting Long Beach.
+
+This might have something to do with economic demographics in those cities. I'll have to examine the data more closely.
+
+```{r echo=FALSE, contbr_date_amount}
+ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 6000 & contb_receipt_dt > as.Date("2015-01-01"))) +
+  geom_point(alpha=1/20, color = 'orange') +
+  scale_y_continuous(breaks = seq(0, 6000, 500)) +
+  geom_line(stat = 'summary', fun.y = median) +
+  geom_line(stat = 'summary', fun.y = mean, color = 'red')
+
+summary(subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 6000 & contb_receipt_dt > as.Date("2015-01-01"))$contb_receipt_amt)
+```
+
+### Daily contributions
+
+Other than the frenzy between February and April 2015, presumably the beginning of the official campaigns, the daily median contribution amount stayed below $125. The *mean* geom_line in red shows the daily average contribution amount. Even during the very dense activity near the end of year 2015, the outliers did not offset the average daily contribution that much.
+
+```{r echo=FALSE, contbr_date_tot_amount}
+ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt, color = cand_party), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_dt > as.Date("2015-01-01"))) +
+  geom_line(stat = 'summary', fun.y = sum) +
+  ggtitle("Daily receipts by party")
+  scale_color_manual(values=c("blue", "green", "red"))
+```
+
+The Republicans took advantage of the quarterly reports with the spikes corresponding to the last day of filing. Which Republican(s) had busy campaign staff?
+
+```{r echo=FALSE, contbr_date_tot_amount_cand}
+ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_dt > as.Date("2015-01-01"))) +
+  geom_line(stat = 'summary', fun.y = sum) +
+  ggtitle("Daily receipts by candidates")
+  facet_wrap(~ cand_nm)
+```
+
+It looks like Bush and Rubio had very good days at quarterly filings. But they, especially Bush, also fizzled out by the end of year. Meanwhile, Cruz had a very good end of year 2015 showing.
+
+On the Democratic side, Sanders had a few good days before the end of the year 2015. Clinton had many good days in 2015.
+
+The blank spaces most likely coincide with presidential campaign suspensions, like Jindal, Lessig, Pataki, and Perry. Clinton, Cruz, Rubio and Sanders kept up with the fundraising in the beginning of 2016 up the first monthly report of the year.
+
 
 # Bivariate Analysis
 
 #### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
 
+The categorical variables gender, party affiliations
 #### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
 
 #### What was the strongest relationship you found?
