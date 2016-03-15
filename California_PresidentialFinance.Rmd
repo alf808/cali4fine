@@ -403,6 +403,11 @@ capcf.amount.candidates <- capcf %>%
   group_by(cand_nm) %>%
   summarise(sum(contb_receipt_amt))
 data.frame(capcf.amount.candidates)
+
+capcf.amount.parties <- capcf %>%
+  group_by(cand_party) %>%
+  summarise(sum(contb_receipt_amt))
+data.frame(capcf.amount.parties)
 ```
 
 **WOW!** And a special **wow** to Clinton for having raised almost nearly half of the total take of all the campaigns put together.
@@ -453,7 +458,7 @@ grid.arrange(p1, p2)
 
 As seen from the contribution counts above, 53% of the contributors were males, 44% females. Males as a group contributed a total of more than 25 million dollars -- 6 million dollars more than females. But the contribution statistics shows that the distribution appears to be similar among all genders at 75% contributing below $100, with similar means -- with males just above $50, and females just below $50.
 
-```{r echo=FALSE, top_30_cities_amounts}
+```{r echo=FALSE, message=FALSE, warning=FALSE, top_30_cities_amounts}
 cta <- capcf %>%
   filter(contb_receipt_amt > 0) %>%
   group_by(contbr_city) %>%
@@ -492,45 +497,138 @@ summary(subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 6000 & contb_r
 Other than the frenzy between February and April 2015, presumably the beginning of the official campaigns, the daily median contribution amount stayed below $125. The *mean* geom_line in red shows the daily average contribution amount. Even during the very dense activity near the end of year 2015, the outliers did not offset the average daily contribution that much.
 
 ```{r echo=FALSE, contbr_date_tot_amount}
+cor.test(as.numeric(capcf$contb_receipt_dt), capcf$contb_receipt_amt, method = "pearson")
+
 ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt, color = cand_party), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_dt > as.Date("2015-01-01"))) +
   geom_line(stat = 'summary', fun.y = sum) +
-  ggtitle("Daily receipts by party")
+  ggtitle("Daily receipts by party") +
   scale_color_manual(values=c("blue", "green", "red"))
+  
+  
 ```
 
 The Republicans took advantage of the quarterly reports with the spikes corresponding to the last day of filing. Which Republican(s) had busy campaign staff?
 
+I did a correlation test between the date and amount. At -.2374, I doubt there's a correlation other than the fact that time is progressive and events occur as time progresses.
+
+
 ```{r echo=FALSE, contbr_date_tot_amount_cand}
 ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_dt > as.Date("2015-01-01"))) +
   geom_line(stat = 'summary', fun.y = sum) +
-  ggtitle("Daily receipts by candidates")
+  ggtitle("Daily receipts by candidates") +
   facet_wrap(~ cand_nm)
 ```
 
-It looks like Bush and Rubio had very good days at quarterly filings. But they, especially Bush, also fizzled out by the end of year. Meanwhile, Cruz had a very good end of year 2015 showing.
+It looks like Republican Bush and Rubio had very good days at quarterly filings. But they, especially Bush, also fizzled out by the end of year. Meanwhile, Cruz had a very good end of year 2015 showing.
 
 On the Democratic side, Sanders had a few good days before the end of the year 2015. Clinton had many good days in 2015.
 
-The blank spaces most likely coincide with presidential campaign suspensions, like Jindal, Lessig, Pataki, and Perry. Clinton, Cruz, Rubio and Sanders kept up with the fundraising in the beginning of 2016 up the first monthly report of the year.
+The blank spaces (or lack of daily financial activity) most likely coincide with presidential campaign suspensions, like Jindal, Lessig, Pataki, and Perry. Clinton, Cruz, Rubio and Sanders kept up with the fundraising in the beginning of 2016 up the first monthly report of the year.
 
 
 # Bivariate Analysis
 
 #### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
 
-The categorical variables gender, party affiliations
+With only 2 continuous variables, namely contb_receipt_amt and contb_receipt_dt, I could only do the scatter plots against each other. I will attempt to color the scatter plots in the multivariate analysis. In fact, I used color in aesthetics to see how candidates and party affiliations relate to these continuous variables.
+
+The campaigns with the most funding activity are also the ones which had notable spikes at end of quarter reports.
+
+Democratic Sanders and Clinton by far outraised any other candidates. In fact, the Democrats raised 66% of the total amount in California with only 4 Democrats against 17 Republicans vying for the highest office in the land.
+
+
+```{r Correlated_variables}
+
+```
+
+
 #### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
+
+I noticed an interesting relationship between contribution counts and total amounts raised in specific cities. Some of the top contributing cities in terms of count were missing in the top cities in terms of total amounts. I looked at some of the cities concerned. Pacific Palisades and Los Altos have demographics of upper class white residents according to https://en.wikipedia.org/wiki/List_of_California_locations_by_income, https://en.wikipedia.org/wiki/Los_Altos,_California and https://en.wikipedia.org/wiki/Pacific_Palisades,_Los_Angeles.
+
+On the other hand, Walnut Creek and Fresno are more diverse cities in terms of economic classes and ethnic groups. I did not examine the demographics of these 2 cities but a friend did confirm that these 2 cities are primarily populated by low to middle income groups with high ethnic diversity.
 
 #### What was the strongest relationship you found?
 
+Other than what I have already mentioned, I am not convinced yet of the "strongest relationship". Perhaps when I do the multivariate analyses, I might get better relationships. There could possibly be a relationship between female contributors to Clinton's campaign. But male Sanders has attracted more females than Clinton has. The female candidate Fiorina's fundraising activities are negligible in all counts. She's not worth examining with this California dataset.
 
-
-
+The demographics in cities and zip codes might also give provide more relationships against party affiliations and presidential candidates.
+summarise(sum(contb_receipt_amt))
 # Multivariate Plots Section
 
 ```{r echo=FALSE, Multivariate_Plots}
 
+
+# ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt, color = cand_party), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_dt > as.Date("2015-01-01"))) +
+#   geom_line() +
+#   ggtitle("Daily receipts by party") +
+#   scale_color_manual(values=c("blue", "green", "red"))
+
+# testsub <- select(capcf, contb_receipt_dt, contb_receipt_amt, cand_nm, cand_party)
+testsub <- capcf %>%
+  filter(contb_receipt_amt > 0, contb_receipt_dt > as.Date("2015-01-01")) %>%
+  #select(contb_receipt_dt, contb_receipt_amt, cand_nm, cand_party) %>%
+  group_by(contb_receipt_dt, cand_party) %>%
+  summarise(n = sum(contb_receipt_amt))
+
+# library(plyr)
+# library(dplyr)
+by(testsub$n, testsub$cand_party, summary)
+
+ggplot(aes(x = contb_receipt_dt, y = n), data = testsub) +
+  #geom_line() +
+  geom_point() +
+  geom_smooth() +
+  facet_wrap(~ cand_party)
+
+
+ggplot(aes(x = contb_receipt_dt, y = n), data = testsub) +
+  geom_line(aes(y = cumsum(n), colour = cand_party))
 ```
+
+```{r}
+testdat <- capcf %>%
+  group_by(cand_party) %>%
+  summarise(amt_recv = sum(contb_receipt_amt))
+
+ggplot(aes(x = cand_party, y = amt_recv, fill = cand_party),
+       data = testdat) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = amt_recv), stat = "identity", size = 4, vjust = -.4) +
+  ylab("Contribution Received") +
+  ggtitle("Contribution Received by Political Party") +
+  scale_fill_manual(values = c("blue", "green", "red"))
+  #scale_y_continuous(label = comma)
+```
+
+```{r, echo = FALSE}
+temp.subset <- capcf %>%
+  group_by(cand_party, cand_nm) %>%
+  summarise(
+    amt_rcvd = sum(contb_receipt_amt),
+    mean_donations = mean(contb_receipt_amt),
+    donor_count = n()
+  ) %>%
+  ungroup() %>%
+  arrange(amt_rcvd)
+temp.subset
+
+temp.subset$cand_nm <- factor(temp.subset$cand_nm,
+  levels = temp.subset[order(temp.subset$amt_rcvd)]$cand_nm)
+
+#plotting donation received by candidates
+ggplot(aes(x = cand_nm, y = amt_rcvd), data = temp.subset) +
+  geom_bar(stat = "identity", aes(fill = cand_party)) +
+  xlab("Candidates") +
+  ylab("Donation Received") +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, max(temp.subset$amt_rcvd)+250000), 
+                     label = comma) +
+  scale_fill_manual(values = c("blue", "green", "red")) +
+  #geom_text(aes(label = amt_rcvd, stat = "identity", size = 3, hjust = -.2)) +
+  ggtitle("Total Donations Received by each Candidates")
+```
+
 
 # Multivariate Analysis
 
