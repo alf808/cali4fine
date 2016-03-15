@@ -553,7 +553,7 @@ On the other hand, Walnut Creek and Fresno are more diverse cities in terms of e
 Other than what I have already mentioned, I am not convinced yet of the "strongest relationship". Perhaps when I do the multivariate analyses, I might get better relationships. There could possibly be a relationship between female contributors to Clinton's campaign. But male Sanders has attracted more females than Clinton has. The female candidate Fiorina's fundraising activities are negligible in all counts. She's not worth examining with this California dataset.
 
 The demographics in cities and zip codes might also give provide more relationships against party affiliations and presidential candidates.
-summarise(sum(contb_receipt_amt))
+
 # Multivariate Plots Section
 
 ```{r echo=FALSE, Multivariate_Plots}
@@ -565,34 +565,36 @@ summarise(sum(contb_receipt_amt))
 #   scale_color_manual(values=c("blue", "green", "red"))
 
 # testsub <- select(capcf, contb_receipt_dt, contb_receipt_amt, cand_nm, cand_party)
-testsub <- capcf %>%
+temp.subset <- capcf %>%
   filter(contb_receipt_amt > 0, contb_receipt_dt > as.Date("2015-01-01")) %>%
   #select(contb_receipt_dt, contb_receipt_amt, cand_nm, cand_party) %>%
   group_by(contb_receipt_dt, cand_party) %>%
   summarise(n = sum(contb_receipt_amt))
 
-# library(plyr)
-# library(dplyr)
-by(testsub$n, testsub$cand_party, summary)
+#by(testsub$n, testsub$cand_party, summary)
 
-ggplot(aes(x = contb_receipt_dt, y = n), data = testsub) +
+ggplot(aes(x = contb_receipt_dt, y = n), data = temp.subset) +
   #geom_line() +
-  geom_point() +
-  geom_smooth() +
-  facet_wrap(~ cand_party)
+  geom_point(alpha = 1/2) +
+  geom_smooth(aes(color = cand_party)) +
+  scale_y_log10() +
+  facet_wrap(~ cand_party) +
+  scale_color_manual(values = c("blue", "green", "red"))
 
 
-ggplot(aes(x = contb_receipt_dt, y = n), data = testsub) +
+ggplot(aes(x = contb_receipt_dt, y = n), data = temp.subset) +
   geom_line(aes(y = cumsum(n), colour = cand_party))
 ```
 
+I am comparing the daily receipts by party. For scaling purposes, I scaled the y-axis logarithmically. This shows that contributions increased as the campaign progresses for both Democrats and Republicans. The Green party's fundraising looks downward.
+
 ```{r}
-testdat <- capcf %>%
+temp.subset <- capcf %>%
   group_by(cand_party) %>%
   summarise(amt_recv = sum(contb_receipt_amt))
 
 ggplot(aes(x = cand_party, y = amt_recv, fill = cand_party),
-       data = testdat) +
+       data = temp.subset) +
   geom_bar(stat = "identity") +
   geom_text(aes(label = amt_recv), stat = "identity", size = 4, vjust = -.4) +
   ylab("Contribution Received") +
@@ -600,6 +602,8 @@ ggplot(aes(x = cand_party, y = amt_recv, fill = cand_party),
   scale_fill_manual(values = c("blue", "green", "red"))
   #scale_y_continuous(label = comma)
 ```
+
+
 
 ```{r, echo = FALSE}
 temp.subset <- capcf %>%
@@ -611,25 +615,64 @@ temp.subset <- capcf %>%
   ) %>%
   ungroup() %>%
   arrange(amt_rcvd)
-temp.subset
+#temp.subset
 
 temp.subset$cand_nm <- factor(temp.subset$cand_nm,
   levels = temp.subset[order(temp.subset$amt_rcvd)]$cand_nm)
 
-#plotting donation received by candidates
+# donation received by candidates
 ggplot(aes(x = cand_nm, y = amt_rcvd), data = temp.subset) +
   geom_bar(stat = "identity", aes(fill = cand_party)) +
   xlab("Candidates") +
   ylab("Donation Received") +
   coord_flip() +
-  scale_y_continuous(limits = c(0, max(temp.subset$amt_rcvd)+250000), 
-                     label = comma) +
+  scale_y_continuous(label = comma) +
   scale_fill_manual(values = c("blue", "green", "red")) +
-  #geom_text(aes(label = amt_rcvd, stat = "identity", size = 3, hjust = -.2)) +
   ggtitle("Total Donations Received by each Candidates")
 ```
 
+We've seen this histogram earlier. This time I added some coloring with based on candidates' party affiliations.
 
+```{r, echo = FALSE, fig.width= 10}
+temp.subset = capcf %>%
+  group_by(cand_party, cand_nm) %>%
+  summarise(
+    amt_rcvd = sum(contb_receipt_amt),
+    mean_donations = mean(contb_receipt_amt),
+    donor_count = n()
+    ) %>%
+  group_by(cand_party) %>%
+  mutate(ratio = round(100 * amt_rcvd/sum(amt_rcvd), 2)) %>%
+  arrange(desc(ratio))
+
+temp.subset$cand_nm = factor(temp.subset$cand_nm, 
+                        levels = temp.subset[order(temp.subset$ratio)]$cand_nm)
+
+ggplot(aes(x = cand_nm, y = ratio, fill = cand_party), data = temp.subset) +
+  geom_bar(stat = "identity") + 
+  geom_text(aes(x = cand_nm, y = ratio, label= sprintf("%1.1f%%", ratio)),
+            vjust = -.5, size = 3) +
+  scale_fill_manual(values = c("blue", "green", "red")) +
+  facet_grid(~ cand_party, scales = "free_x", space = "free_x") +
+  ylab("Proportion of Donations") +
+  xlab("Candidates within respective Parties") +
+  theme(legend.position = "top", axis.text.x = element_text(angle = 45))
+```
+
+This is the one time in any of my plots that the Green party stood out. As the sole candidate, Stein clearly is the fundraising front-runner in her party.
+
+
+```{r}
+ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt, color= cand_party),
+       data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 6000 &
+                       contb_receipt_dt > as.Date("2015-01-01"))) +
+    geom_point(alpha=0.3, position='jitter') +
+    geom_smooth(formula = contb_receipt_amt ~ contb_receipt_dt) +
+    scale_colour_manual(values=c("blue", "green", "red"))
+```
+
+
+    
 # Multivariate Analysis
 
 #### Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
