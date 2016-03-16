@@ -39,3 +39,13 @@ https://www.facebook.com/notes/facebook-data-science/the-emotional-highs-and-low
 http://www.r-statistics.com/2013/05/log-transformations-for-skewed-and-wide-distributions-from-practical-data-science-with-r/
 
 http://www.r-bloggers.com/running-totals-in-r/
+
+https://cran.r-project.org/web/packages/acs/acs.pdf
+
+https://github.com/arilamstein/acs-zcta-explorer/blob/master/gen_df.R
+
+https://github.com/arilamstein/acs-zcta-explorer/blob/master/gen_graphs.R
+
+https://github.com/arilamstein/choroplethrZip/blob/master/R/zip_choropleth.R
+
+http://factfinder.census.gov/faces/affhelp/jsf/pages/metadata.xhtml?lang=en&type=table&id=table.en.ACS_13_1YR_B19301#main_content

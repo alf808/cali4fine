@@ -10,6 +10,21 @@ library(GGally)
 library(gridExtra)
 library(scales)
 library(RColorBrewer)
+# to install choroplethrzip
+#library(devtools)
+# to retrieve census data
+#library(acs)
+library(choroplethr)
+library(choroplethrZip)
+```
+
+```{r echo=FALSE, eval=FALSE}
+#install.packages("choroplethr", dependencies = TRUE)
+#install.packages("devtools", dependencies = TRUE)
+#install_github('arilamstein/choroplethrZip@v1.5.0')
+#install.packages("acs", dependencies=TRUE)
+# my api key from census data
+# api.key.install("ce314bcf6a442a68173360668caa80c7174bc96f", file="key.rda")
 ```
 
 I used the dataset "Financial Contributions to Presidential Campaigns by State". I followed Udacity's instructions to download one state. From http://fec.gov/disclosurep/pnational.do on February 26 2016, I downloaded the dataset from California for 2016 presidential election year. It seems that the latest contribution for this dataset was placed on January 29 2016.
@@ -391,7 +406,7 @@ ggpairs(capcf.subset)
 
 I experimented with ggpairs a lot. I let it run several times which lasted 90 hours for a whole week -- each time ultimately ending in crashing not only R-studio but also both machines (Windows and Linux) I use for this project. I eventually subset the dataframe down to 8 variables with a few levels for the factor variables. The ugly result is below.
 
-## TODO: put image of ggpair below
+![ggpair result](ggpairs1.png)
 
 ```{r echo=FALSE, Bivariate_Plots}
 # Total amount contributed
@@ -482,6 +497,9 @@ And some top contributing cities in terms of amount did not appear in top 20 con
 
 This might have something to do with economic demographics in those cities. I'll have to examine the data more closely.
 
+
+### Daily contributions
+
 ```{r echo=FALSE, contbr_date_amount}
 ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 6000 & contb_receipt_dt > as.Date("2015-01-01"))) +
   geom_point(alpha=1/20, color = 'orange') +
@@ -492,7 +510,6 @@ ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt), data = subset(capcf, co
 summary(subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 6000 & contb_receipt_dt > as.Date("2015-01-01"))$contb_receipt_amt)
 ```
 
-### Daily contributions
 
 Other than the frenzy between February and April 2015, presumably the beginning of the official campaigns, the daily median contribution amount stayed below $125. The *mean* geom_line in red shows the daily average contribution amount. Even during the very dense activity near the end of year 2015, the outliers did not offset the average daily contribution that much.
 
@@ -503,14 +520,11 @@ ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt, color = cand_party), dat
   geom_line(stat = 'summary', fun.y = sum) +
   ggtitle("Daily receipts by party") +
   scale_color_manual(values=c("blue", "green", "red"))
-  
-  
 ```
 
 The Republicans took advantage of the quarterly reports with the spikes corresponding to the last day of filing. Which Republican(s) had busy campaign staff?
 
-I did a correlation test between the date and amount. At -.2374, I doubt there's a correlation other than the fact that time is progressive and events occur as time progresses.
-
+I did a correlation test between the date and amount. At -0.2374, I doubt there's a correlation other than the fact that time is progressive and events occur as time progresses.
 
 ```{r echo=FALSE, contbr_date_tot_amount_cand}
 ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_dt > as.Date("2015-01-01"))) +
@@ -537,11 +551,6 @@ The campaigns with the most funding activity are also the ones which had notable
 Democratic Sanders and Clinton by far outraised any other candidates. In fact, the Democrats raised 66% of the total amount in California with only 4 Democrats against 17 Republicans vying for the highest office in the land.
 
 
-```{r Correlated_variables}
-
-```
-
-
 #### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
 
 I noticed an interesting relationship between contribution counts and total amounts raised in specific cities. Some of the top contributing cities in terms of count were missing in the top cities in terms of total amounts. I looked at some of the cities concerned. Pacific Palisades and Los Altos have demographics of upper class white residents according to https://en.wikipedia.org/wiki/List_of_California_locations_by_income, https://en.wikipedia.org/wiki/Los_Altos,_California and https://en.wikipedia.org/wiki/Pacific_Palisades,_Los_Angeles.
@@ -556,8 +565,14 @@ The demographics in cities and zip codes might also give provide more relationsh
 
 # Multivariate Plots Section
 
-```{r echo=FALSE, Multivariate_Plots}
+```{r echo=FALSE, show_contribution_trend}
+ggplot(aes(x = contb_receipt_dt, y = n), data = temp.subset) +
+  geom_line(aes(y = cumsum(n), colour = cand_party))
+```
 
+I was trying to show the cumulative amount as time progresses. I could not separate by parties.
+
+```{r echo=FALSE, Multivariate_Plots}
 
 # ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt, color = cand_party), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_dt > as.Date("2015-01-01"))) +
 #   geom_line() +
@@ -582,13 +597,11 @@ ggplot(aes(x = contb_receipt_dt, y = n), data = temp.subset) +
   scale_color_manual(values = c("blue", "green", "red"))
 
 
-ggplot(aes(x = contb_receipt_dt, y = n), data = temp.subset) +
-  geom_line(aes(y = cumsum(n), colour = cand_party))
 ```
 
 I am comparing the daily receipts by party. For scaling purposes, I scaled the y-axis logarithmically. This shows that contributions increased as the campaign progresses for both Democrats and Republicans. The Green party's fundraising looks downward.
 
-```{r}
+```{r echo=FALSE}
 temp.subset <- capcf %>%
   group_by(cand_party) %>%
   summarise(amt_recv = sum(contb_receipt_amt))
@@ -600,7 +613,6 @@ ggplot(aes(x = cand_party, y = amt_recv, fill = cand_party),
   ylab("Contribution Received") +
   ggtitle("Contribution Received by Political Party") +
   scale_fill_manual(values = c("blue", "green", "red"))
-  #scale_y_continuous(label = comma)
 ```
 
 
@@ -631,7 +643,7 @@ ggplot(aes(x = cand_nm, y = amt_rcvd), data = temp.subset) +
   ggtitle("Total Donations Received by each Candidates")
 ```
 
-We've seen this histogram earlier. This time I added some coloring with based on candidates' party affiliations.
+We have seen this histogram earlier. This time I added some coloring based on candidates' party affiliations.
 
 ```{r, echo = FALSE, fig.width= 10}
 temp.subset = capcf %>%
@@ -662,24 +674,76 @@ ggplot(aes(x = cand_nm, y = ratio, fill = cand_party), data = temp.subset) +
 This is the one time in any of my plots that the Green party stood out. As the sole candidate, Stein clearly is the fundraising front-runner in her party.
 
 
-```{r}
+```{r echo=FALSE}
 ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt, color= cand_party),
        data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 6000 &
                        contb_receipt_dt > as.Date("2015-01-01"))) +
-    geom_point(alpha=0.3, position='jitter') +
-    geom_smooth(formula = contb_receipt_amt ~ contb_receipt_dt) +
-    scale_colour_manual(values=c("blue", "green", "red"))
+  geom_point(alpha=0.3, position='jitter') +
+  geom_smooth(formula = contb_receipt_amt ~ contb_receipt_dt) +
+  ylim() +
+  scale_colour_manual(values=c("blue", "green", "red"))
+```
+
+## Attempt to create maps and plot contribution density
+
+```{r echo=FALSE, per_capita_income_map}
+# data package from choroplethrZip
+data(zip.regions)
+cazips <- subset(zip.regions, state.name == "california")
+# census data of income with zip from census.gov, using library choroplethr
+df_income = get_acs_data("B19301", "zip", endyear=2013, span=5)[[1]]
+# save(df_income, file="df_income.rdata")
+# write.csv(df_income, file="df_income.csv")
+capcf.zips <- unique(capcf$contbr_zip, incomparables = FALSE)
+
+ca_income <- df_income[df_income$region %in% capcf.zips, ]
+# save(ca_income, file="ca_income.rdata")
+# write.csv(ca_income, file="ca_income.csv")
+
+sum(is.na(ca_income$value))
+#ggplot(aes(region, value), data = ca_income)
+
+z1 <- zip_choropleth(ca_income, legend = "Per Capita Income",
+                     state_zoom = "california")
 ```
 
 
-    
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, contribution_map}
+capcf.contbr.by_zip <- capcf %>%
+                filter(contb_receipt_amt > 0) %>%
+                group_by(contbr_zip) %>%
+                summarize(value = sum(contb_receipt_amt)) %>%
+                arrange(desc(value))
+capcf.contbr.by_zip$region <- capcf.contbr.by_zip$contbr_zip
+capcf.contbr.by_zip <- na.omit(capcf.contbr.by_zip)
+
+cali_zip <- ZipChoropleth$new(capcf.contbr.by_zip)
+cali_zip$legend = 'Total Donations'
+cali_zip$ggplot_scale = scale_fill_brewer(palette = 1, drop=FALSE)
+cali_zip$set_zoom_zip(state_zoom="california", county_zoom=NULL,
+                      msa_zoom=NULL,
+                      zip_zoom=NULL)
+z2 <- cali_zip$render()
+
+grid.arrange(z1, z2, ncol = 2)
+```
+
+I am trying to figure out what the per capita income ranges are in different zip codes in California. I thought I might be able to see a connection between income and contribution totals to campaigns.
+
+I created the map above based on zip codes and region data from choroplethrzip. I then took the a dataset from census.gov 2013 income data from http://factfinder.census.gov/faces/affhelp/jsf/pages/metadata.xhtml?lang=en&type=table&id=table.en.ACS_13_1YR_B19301#main_content. The dataset has 2 variables, region (by zip) and value (per capita income).
+
 # Multivariate Analysis
 
 #### Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
 
+I really would like to have gathered more information about demographics, not only gender or income groups. I may have already stretched my inferences a bit by trying to see a connection between zip codes and total campaign contributions. I might still find a connection by mapping more data points.
+
 #### Were there any interesting or surprising interactions between features?
 
-#### OPTIONAL: Did you create any models with your dataset? Discuss the strengths and limitations of your model.
+The dataset so far shows a very strong support for the Democratic candidates in California. Both Democrat Clinton and Sanders are still in the race (as of March 15 2016). The top Republican fundraisers have dropped out of the presidential race. But Trump, the clear Republican frontrunner, does not seem to have a campaign in California.
+
+
 
 ------
 
