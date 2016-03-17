@@ -474,16 +474,18 @@ grid.arrange(p1, p2)
 As seen from the contribution counts above, 53% of the contributors were males, 44% females. Males as a group contributed a total of more than 25 million dollars -- 6 million dollars more than females. But the contribution statistics shows that the distribution appears to be similar among all genders at 75% contributing below $100, with similar means -- with males just above $50, and females just below $50.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, top_30_cities_amounts}
-cta <- capcf %>%
-  filter(contb_receipt_amt > 0) %>%
+cta <- subset(capcf, contb_receipt_amt > 0)
+cta <- cta %>%
+  #filter(contb_receipt_amt > 0) %>%
   group_by(contbr_city) %>%
   tally(contb_receipt_amt) %>%
   arrange(desc(n)) %>%
   top_n(30)
+  #ungroup()
 
 cta$contbr_city <- factor(cta$contbr_city, levels = cta$contbr_city[order(cta$n)])
 
-ggplot(aes(x = contbr_city, y = n), data = cta) +
+ggplot(aes(x = contbr_city, y = contb_receipt_amt, color = cand_party), data = subset(capcf, contb_receipt_amt > 0 & contbr_city %in% cta$contbr_city)) +
   geom_bar(stat = "identity") +
   xlab("Cities") +
   ylab("Total amount of contributions") +
@@ -517,6 +519,7 @@ Other than the frenzy between February and April 2015, presumably the beginning 
 cor.test(as.numeric(capcf$contb_receipt_dt), capcf$contb_receipt_amt, method = "pearson")
 
 ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt, color = cand_party), data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_dt > as.Date("2015-01-01"))) +
+  #geom_point(alpha = 1/2) +
   geom_line(stat = 'summary', fun.y = sum) +
   ggtitle("Daily receipts by party") +
   scale_color_manual(values=c("blue", "green", "red"))
@@ -565,9 +568,18 @@ The demographics in cities and zip codes might also give provide more relationsh
 
 # Multivariate Plots Section
 
+### Fundraising trajectory for 2016 presidential race
+
 ```{r echo=FALSE, show_contribution_trend}
+temp.subset <- capcf %>%
+  filter(contb_receipt_amt > 0, contb_receipt_dt > as.Date("2015-01-01")) %>%
+  #select(contb_receipt_dt, contb_receipt_amt, cand_nm, cand_party) %>%
+  group_by(contb_receipt_dt, cand_party) %>%
+  summarise(n = sum(contb_receipt_amt))
+
 ggplot(aes(x = contb_receipt_dt, y = n), data = temp.subset) +
-  geom_line(aes(y = cumsum(n), colour = cand_party))
+  geom_line(aes(y = cumsum(n)))
+# color = cand_party, group = cand_party)
 ```
 
 I was trying to show the cumulative amount as time progresses. I could not separate by parties.
@@ -579,7 +591,6 @@ I was trying to show the cumulative amount as time progresses. I could not separ
 #   ggtitle("Daily receipts by party") +
 #   scale_color_manual(values=c("blue", "green", "red"))
 
-# testsub <- select(capcf, contb_receipt_dt, contb_receipt_amt, cand_nm, cand_party)
 temp.subset <- capcf %>%
   filter(contb_receipt_amt > 0, contb_receipt_dt > as.Date("2015-01-01")) %>%
   #select(contb_receipt_dt, contb_receipt_amt, cand_nm, cand_party) %>%
@@ -611,13 +622,13 @@ ggplot(aes(x = cand_party, y = amt_recv, fill = cand_party),
   geom_bar(stat = "identity") +
   geom_text(aes(label = amt_recv), stat = "identity", size = 4, vjust = -.4) +
   ylab("Contribution Received") +
-  ggtitle("Contribution Received by Political Party") +
+  ggtitle("Total Contribution Received by Political Party") +
   scale_fill_manual(values = c("blue", "green", "red"))
 ```
 
+Democrats are winning the fundraising race. The Green party's financial state is rather sad-looking, only having raised a total of $13265.
 
-
-```{r, echo = FALSE}
+```{r, echo = FALSE, total_donations_party}
 temp.subset <- capcf %>%
   group_by(cand_party, cand_nm) %>%
   summarise(
@@ -645,7 +656,7 @@ ggplot(aes(x = cand_nm, y = amt_rcvd), data = temp.subset) +
 
 We have seen this histogram earlier. This time I added some coloring based on candidates' party affiliations.
 
-```{r, echo = FALSE, fig.width= 10}
+```{r, echo = FALSE, ratio_donations_within_party}
 temp.subset = capcf %>%
   group_by(cand_party, cand_nm) %>%
   summarise(
@@ -674,19 +685,22 @@ ggplot(aes(x = cand_nm, y = ratio, fill = cand_party), data = temp.subset) +
 This is the one time in any of my plots that the Green party stood out. As the sole candidate, Stein clearly is the fundraising front-runner in her party.
 
 
-```{r echo=FALSE}
+```{r echo=FALSE, point_plot_donations_time}
 ggplot(aes(x = contb_receipt_dt, y = contb_receipt_amt, color= cand_party),
        data = subset(capcf, contb_receipt_amt > 0 & contb_receipt_amt < 6000 &
                        contb_receipt_dt > as.Date("2015-01-01"))) +
   geom_point(alpha=0.3, position='jitter') +
   geom_smooth(formula = contb_receipt_amt ~ contb_receipt_dt) +
-  ylim() +
-  scale_colour_manual(values=c("blue", "green", "red"))
+  scale_y_continuous(limits = c(0, 6000), breaks = seq(0, 6000, 500)) +
+  scale_colour_manual(values = c("blue", "green", "red")) +
+  ggtitle("Contributions over time")
 ```
+
+It is clear from the density of the plots that many donors contributed at 2700, 2000, 1000, 500, and 250 increments. But most donors contributed at or below 250. The smoothing lines confirm that fact. Only after the second quarterly reports were filed that activity began to stabilize.
 
 ## Attempt to create maps and plot contribution density
 
-```{r echo=FALSE, per_capita_income_map}
+```{r echo=FALSE, message=FALSE, warning=FALSE, per_capita_income_map}
 # data package from choroplethrZip
 data(zip.regions)
 cazips <- subset(zip.regions, state.name == "california")
@@ -708,7 +722,6 @@ z1 <- zip_choropleth(ca_income, legend = "Per Capita Income",
 ```
 
 
-
 ```{r echo=FALSE, message=FALSE, warning=FALSE, contribution_map}
 capcf.contbr.by_zip <- capcf %>%
                 filter(contb_receipt_amt > 0) %>%
@@ -720,7 +733,7 @@ capcf.contbr.by_zip <- na.omit(capcf.contbr.by_zip)
 
 cali_zip <- ZipChoropleth$new(capcf.contbr.by_zip)
 cali_zip$legend = 'Total Donations'
-cali_zip$ggplot_scale = scale_fill_brewer(palette = 1, drop=FALSE)
+cali_zip$ggplot_scale = scale_fill_brewer(palette = "Blues", drop=FALSE)
 cali_zip$set_zoom_zip(state_zoom="california", county_zoom=NULL,
                       msa_zoom=NULL,
                       zip_zoom=NULL)
@@ -728,6 +741,11 @@ z2 <- cali_zip$render()
 
 grid.arrange(z1, z2, ncol = 2)
 ```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, contribution_map_row}
+grid.arrange(z1, z2, nrow = 2)
+```
+
 
 I am trying to figure out what the per capita income ranges are in different zip codes in California. I thought I might be able to see a connection between income and contribution totals to campaigns.
 
@@ -750,24 +768,178 @@ The dataset so far shows a very strong support for the Democratic candidates in 
 # Final Plots and Summary
 
 ### Plot One
+### Which party has received the most funds?
 ```{r echo=FALSE, Plot_One}
+temp.subset <- capcf %>%
+  group_by(cand_party) %>%
+  summarise(amt_recv = sum(contb_receipt_amt))
 
+ggplot(aes(x = cand_party, y = amt_recv, fill = cand_party),
+       data = temp.subset) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = dollar_format()(amt_recv)), stat = "identity",
+            size = 4, vjust = -.4) +
+  xlab("Political Parties Represented in the Race") +
+  ylab("Contribution Received") +
+  ggtitle("Total Contribution Received in each Political Party") +
+  scale_fill_manual(values = c("blue", "green", "red"))
 ```
 
 ### Description One
 
+This plot illustrates that the Democratic party is outraising the Republican party. If money was the only factor in winning, a Democrat will take California in the general Presidential Election. But with the current news in the primary elections, Trump is gaining a lot of support with very little fundraising. See plot below.
 
 ### Plot Two
-```{r echo=FALSE, Plot_Two}
+### Who has the most funds within his or her respective party?
+```{r, echo = FALSE, Plot_Two}
+temp.subset = capcf %>%
+  group_by(cand_party, cand_nm) %>%
+  summarise(
+    amt_rcvd = sum(contb_receipt_amt),
+    mean_donations = mean(contb_receipt_amt),
+    donor_count = n()
+    ) %>%
+  group_by(cand_party) %>%
+  mutate(ratio = round(100 * amt_rcvd/sum(amt_rcvd), 2)) %>%
+  arrange(desc(ratio))
 
+temp.subset$cand_nm = factor(temp.subset$cand_nm, 
+                        levels = temp.subset[order(temp.subset$ratio)]$cand_nm)
+
+ggplot(aes(x = cand_nm, y = ratio, fill = cand_party), data = temp.subset) +
+  geom_bar(stat = "identity") + 
+  geom_text(aes(x = cand_nm, y = ratio, label = sprintf("%1.1f%%", ratio)),
+            vjust = -.5, size = 3) +
+  scale_fill_manual(values = c("blue", "green", "red")) +
+  facet_grid(~ cand_party, scales = "free_x", space = "free_x") +
+  ylab("Proportion of Donations") +
+  xlab("Candidates within respective Parties") +
+  ggtitle("Proportion of Donations of Candidates within Parties") +
+  theme(legend.position = "top", axis.text.x = element_text(angle = 45))
 ```
 
 ### Description Two
 
+In one plot, this image illustrates bizarre 2016 presidential race. On the Democratic side, the histogram matches the current trend. The top 2 fundraisers are still in the race with Clinton as the popular and delegate frontrunner. The other 3 Democratic candidates have suspended campaigns with poor showing in the primaries, which matched their poor total donation received in California.
+
+On the other Republican side, the plot shows the reverse of a trend. The clear Republican frontrunner, Trump, has raised very little funds compared to his top competitors, Rubio, Bush, Cruz and Carson. The top republican fundraiser, Rubio, has dropped out of the race. Cruz still remains in the race. Kasich, who has won a few delegates, is hanging in there (as of March 16 2016). He needs to do a better job with raising funds to demonstrate his viability as the Republican presidential nominee.
 
 ### Plot Three
-```{r echo=FALSE, Plot_Three}
+```{r echo=FALSE, message=FALSE, warning=FALSE, contribution_map_final}
+# democrats
+capcf.contbr.by_zip.dem <- capcf %>%
+                filter(contb_receipt_amt > 0, cand_party == "Democrat") %>%
+                group_by(contbr_zip) %>%
+                summarize(value = sum(contb_receipt_amt)) %>%
+                arrange(desc(value))
+capcf.contbr.by_zip.dem$region <- capcf.contbr.by_zip.dem$contbr_zip
+#capcf.contbr.by_zip.dem <- na.omit(capcf.contbr.by_zip.dem)
 
+cali_zip <- ZipChoropleth$new(capcf.contbr.by_zip.dem)
+cali_zip$legend = 'Total Donations'
+cali_zip$ggplot_scale = scale_fill_brewer(palette = "Blues", drop=FALSE)
+cali_zip$set_zoom_zip(state_zoom="california", county_zoom=NULL,
+                      msa_zoom=NULL,
+                      zip_zoom=NULL)
+zDem <- cali_zip$render()
+
+# republicans
+capcf.contbr.by_zip.rep <- capcf %>%
+                filter(contb_receipt_amt > 0, cand_party == "Republican") %>%
+                group_by(contbr_zip) %>%
+                summarize(value = sum(contb_receipt_amt)) %>%
+                arrange(desc(value))
+capcf.contbr.by_zip.rep$region <- capcf.contbr.by_zip.rep$contbr_zip
+#capcf.contbr.by_zip.rep <- na.omit(capcf.contbr.by_zip.rep)
+
+cali_zip <- ZipChoropleth$new(capcf.contbr.by_zip.rep)
+cali_zip$legend = 'Total Donations'
+cali_zip$ggplot_scale = scale_fill_brewer(palette = "Reds", drop=FALSE)
+cali_zip$set_zoom_zip(state_zoom="california", county_zoom=NULL,
+                      msa_zoom=NULL,
+                      zip_zoom=NULL)
+zRep <- cali_zip$render()
+
+grid.arrange(zDem, zRep, ncol = 2)
+
+grid.arrange(zDem, zRep, nrow = 2)
+
+# alameda county
+capcf.contbr.alameda <- capcf %>%
+                filter(contb_receipt_amt > 0, cand_party == "Republican") %>%
+                group_by(contbr_zip) %>%
+                summarize(value = sum(contb_receipt_amt)) %>%
+                arrange(desc(value))
+capcf.contbr.by_zip.rep$region <- capcf.contbr.by_zip.rep$contbr_zip
+#capcf.contbr.by_zip.rep <- na.omit(capcf.contbr.by_zip.rep)
+
+cali_zip <- ZipChoropleth$new(capcf.contbr.by_zip.rep)
+cali_zip$legend = 'Total Donations'
+cali_zip$ggplot_scale = scale_fill_brewer(palette = "Reds", drop=FALSE)
+cali_zip$set_zoom_zip(state_zoom="california", county_zoom=NULL,
+                      msa_zoom=NULL,
+                      zip_zoom=NULL)
+zRep <- cali_zip$render()
+```
+
+### alameda most diverse county
+#### http://www.theatlantic.com/national/archive/2014/04/mapping-racial-diversity-by-county/361388/
+```{r echo=FALSE, alameda_zoom}
+# capcf.contbr.by_zip <- na.omit(capcf.contbr.by_zip)
+
+alameda.zips <- subset(cazips, county.name == "alameda")
+
+capcf.alameda <- capcf %>%
+  filter(contb_receipt_amt > 0 & contbr_zip %in% alameda.zips$region) %>%
+  group_by(contbr_zip) %>%
+  summarize(value = sum(contb_receipt_amt)) %>%
+  arrange(desc(value))
+
+capcf.alameda$region <- capcf.alameda$contbr_zip
+
+cali_zip <- ZipChoropleth$new(capcf.alameda)
+cali_zip$legend = 'Total Donations'
+cali_zip$ggplot_scale = scale_fill_brewer(palette = "PuRd", drop=FALSE)
+cali_zip$set_zoom_zip(state_zoom="california", county_zoom="alameda",
+                      msa_zoom=NULL,
+                      zip_zoom=NULL)
+zAlameda <- cali_zip$render()
+zAlameda
+```
+
+## testing
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Experiment_Plot_Three}
+cta <- capcf %>%
+  filter(contb_receipt_amt > 0 & contb_receipt_amt < 6000) %>%
+  group_by(contbr_city) %>%
+  tally(contb_receipt_amt) %>%
+  arrange(desc(n)) %>%
+  top_n(20)
+
+cta$contbr_city <- factor(cta$contbr_city, levels = cta$contbr_city[order(cta$n)])
+
+ggplot(aes(x = ReorderSize(contbr_city), y = contb_receipt_amt), data = subset(capcf, contb_receipt_amt > 0 & contbr_city %in% cta$contbr_city)) +
+  geom_bar(stat = "identity", aes(fill = cand_party, group = cand_party), position = "dodge") +
+  xlab("Cities") +
+  ylab("Total amount of contributions") +
+  ggtitle("Top cities by total amounts") +
+  coord_flip() +
+  scale_fill_manual(values = c("blue", "green", "red"))
+
+anothertemp <- subset(capcf, contb_receipt_amt > 0 & capcf$contbr_city %in% cta$contbr_city)
+
+ggplot(aes(x = contbr_city, y = contb_receipt_amt), data = anothertemp) +
+  stat_summmary(aes(color = cand_party), fun.y = "sum") +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("blue", "green", "red"))
+
+ggplot(aes(x = ReorderSize(contbr_city), fill = cand_party), data = anothertemp) +
+  stat_summary(aes(y = contb_receipt_amt), fun.y = "sum", geom = "bar") +
+  #geom_bar(aes(fill = cand_party)) +
+  scale_fill_manual(values = c("blue", "green", "red")) +
+  coord_flip()
 ```
 
 ### Description Three
