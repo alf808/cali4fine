@@ -1,7 +1,0 @@
-http://docs.ggplot2.org/current/geom_bar.html
-
-https://ballotpedia.org/Presidential_candidates,_2016
-
-http://yihui.name/knitr/options/
-
-https://rpubs.com/arilamstein/zip-vignette-1
